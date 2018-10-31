@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!--
+/*
+ * Copyright (c) 2018 PayGate (Pty) Ltd
+ *
+ * Author: App Inlet (Pty) Ltd
+ *
+ * Released under the GNU General Public License
+ */
+-->
+<layout version="0.1.0">
+
+<!--
+Shopping cart
+-->
+
+    <checkout_cart_index>
+        <!-- Mage_PaySubs -->
+        <reference name="checkout.cart.methods">
+            <block type="paysubs/link_shortcut" name="checkout.cart.methods.paysubs_processing" template="paysubs/link.phtml"/>
+        </reference>
+    </checkout_cart_index>
+
+<!--
+    PaySubs Failure page after shortcut link invocation
+-->
+    <paysubs_processing_failure>
+        <!-- Mage_PaySubs -->
+        <remove name="right"/>
+        <remove name="left"/>
+
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="paysubs/failure" name="paysubs_failure" template="paysubs/failure.phtml" />
+        </reference>
+    </paysubs_processing_failure>
+
+    <!--
+        PaySubs Failure page after shortcut link invocation
+        -->
+    <paysubs_processing_response>
+        <!-- Mage_PaySubs -->
+        <remove name="right"/>
+        <remove name="left"/>
+
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="paysubs/success" name="paysubs_success" template="paysubs/success.phtml" />
+        </reference>
+    </paysubs_processing_response>
+
+<!--
+PaySubs Review page after shortcut link invocation
+-->
+
+    <paysubs_processing_review>
+        <!-- Mage_PaySubs -->
+        <remove name="right"/>
+        <remove name="left"/>
+
+        <reference name="root">
+            <action method="setTemplate"><template>page/1column.phtml</template></action>
+        </reference>
+        <reference name="content">
+            <block type="paysubs/review" name="paysubs_review" template="paysubs/review.phtml">
+                <block type="paysubs/review_details" name="paysubs_review_details" as="details" template="paysubs/review/details.phtml"/>
+            </block>
+        </reference>
+    </paysubs_processing_review>
+
+<!--
+PaySubs Review details block
+-->
+
+    <paysubs_review_details>
+        <!-- Mage_PaySubs -->
+        <block type="paysubs/review_details" name="root" output="toHtml" template="paysubs/review/details.phtml"/>
+    </paysubs_review_details>
+
+</layout>

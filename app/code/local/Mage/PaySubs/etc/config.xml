@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!--
+/*
+ * Copyright (c) 2018 PayGate (Pty) Ltd
+ *
+ * Author: App Inlet (Pty) Ltd
+ *
+ * Released under the GNU General Public License
+ */
+-->
+<config>
+    <modules>
+        <PaySubs>
+            <version>1.0.0</version>
+        </PaySubs>
+    </modules>
+    <global>
+        <models>
+            <paysubs>
+                <class>Mage_PaySubs_Model</class>
+            </paysubs>
+        </models>
+        <helpers>
+	    <paysubs>
+                <class>Mage_PaySubs_Helper</class>
+            </paysubs>
+	</helpers>
+        <resources>
+            <paysubs_setup>
+                <setup>
+                    <module>Mage_PaySubs</module>
+                </setup>
+                <connection>
+                    <use>core_setup</use>
+                </connection>
+            </paysubs_setup>
+            <paysubs_write>
+                <connection>
+                    <use>core_write</use>
+                </connection>
+            </paysubs_write>
+            <paysubs_read>
+                <connection>
+                    <use>core_read</use>
+                </connection>
+            </paysubs_read>
+        </resources>
+        <blocks>
+            <paysubs><class>Mage_PaySubs_Block</class></paysubs>
+        </blocks>
+        <payment>
+            <url>https://www.vcs.co.za/vvonline/vcspay.aspx</url>
+        </payment>
+    </global>
+    <frontend>
+        <routers>
+            <paysubs>
+                <use>standard</use>
+                <args>
+                    <module>Mage_PaySubs</module>
+                    <frontName>paysubs</frontName>
+                </args>
+            </paysubs>
+        </routers>
+        <translate>
+            <modules>
+                <PaySubs>
+                    <files>
+                        <default>PaySubs.csv</default>
+                    </files>
+                </PaySubs>
+            </modules>
+        </translate>
+        <layout>
+            <updates>
+                <paysubs>
+                    <file>paysubs.xml</file>
+                </paysubs>
+            </updates>
+        </layout>
+    </frontend>
+    <adminhtml>
+        <translate>
+            <modules>
+                <PaySubs>
+                    <files>
+                        <default>PaySubs.csv</default>
+                    </files>
+                </PaySubs>
+            </modules>
+        </translate>
+    </adminhtml>
+    <default>
+        <payment>
+            <paysubs_cc>
+                <active>0</active>
+                <model>paysubs/cc</model>
+                <order_status>1</order_status>
+                <title>Credit Card (PaySubs)</title>
+                <allowspecific>0</allowspecific>
+                <pam></pam>
+            </paysubs_cc>
+        </payment>
+    </default>
+</config>

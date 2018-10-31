@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!--
+/*
+ * Copyright (c) 2018 PayGate (Pty) Ltd
+ *
+ * Author: App Inlet (Pty) Ltd
+ * 
+ * Released under the GNU General Public License
+ */
+-->
+<config>
+    <modules>
+        <Mage_PaySubs>
+            <active>true</active>
+            <codePool>local</codePool>
+        </Mage_PaySubs>
+    </modules>
+</config>
