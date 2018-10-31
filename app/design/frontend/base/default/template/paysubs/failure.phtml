@@ -1,0 +1,17 @@
+<?php
+/*
+ * Copyright (c) 2018 PayGate (Pty) Ltd
+ *
+ * Author: App Inlet (Pty) Ltd
+ *
+ * Released under the GNU General Public License
+ */
+?>
+ 
+<div class="page-title">
+    <h1><?php echo $this->__('Transaction failed') ?></h1>
+</div>
+<h2 class="title"><?php echo $this->__('Your transaction was not successful, please try again or contact your bank') ?></h2>
+<?php if ($this->getRealOrderId()) : ?><p><?php echo $this->__('Order #') . $this->getRealOrderId() ?></p><?php endif ?>
+<?php if ($error = $this->getErrorMessage()) : ?><p><?php echo $error ?></p><?php endif ?>
+<p><?php echo $this->__('Click <a href="%s">here</a> to continue shopping.', $this->getBaseUrl()) ?></p>
