@@ -1,5 +1,5 @@
 # PaySubs_Magento_1
-## DPO PayGate PaySubs (VCS) Magento plugin v1.0.0 for Magento v1.9.3.x
+## DPO PayGate PaySubs1 (VCS) Magento plugin v1.0.0 for Magento v1.9.3.x
 
 This is the DPO PayGate PaySubs (VCS) plugin for Magento 1. Please feel free to contact the DPO PayGate support team at support@paygate.co.za should you require any assistance.
 
