@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--
 /*
- * Copyright (c) 2018 PayGate (Pty) Ltd
+ * Copyright (c) 2019 PayGate (Pty) Ltd
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -11,7 +11,7 @@
 <config>
     <modules>
         <PaySubs>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </PaySubs>
     </modules>
     <global>
