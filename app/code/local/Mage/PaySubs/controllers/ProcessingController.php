@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2019 PayGate (Pty) Ltd
+ * Copyright (c) 2020 PayGate (Pty) Ltd
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -48,7 +48,7 @@ class Mage_PaySubs_ProcessingController extends Mage_Core_Controller_Front_Actio
         $order = Mage::getModel( 'sales/order' );
         $order->loadByIncrementId( $session->getLastRealOrderId() );
         $order->addStatusToHistory( Mage_Sales_Model_Order::STATE_HOLDED,
-            Mage::helper( 'paysubs' )->__( 'Customer was redirected to PaySubs.' ) );
+            Mage::helper( 'paysubs' )->__( 'Customer was redirected to PayGate.' ) );
         $order->save();
 
         $this->getResponse()->setBody(
@@ -61,167 +61,189 @@ class Mage_PaySubs_ProcessingController extends Mage_Core_Controller_Front_Actio
     }
 
     /**
-     * PaySubs returns POST variables to this action
+     * Failure
+     * POST from PaySubs returns here
+     */
+    public function failureAction()
+    {
+        /** Get POST content and sanitise it */
+        $post = [];
+        foreach ( $_REQUEST as $k => $value ) {
+            $post[$k] = filter_var( $value, FILTER_SANITIZE_STRING );
+        }
+
+        $session = $this->getCheckout();
+
+        if ( count( $post ) === 0 ) {
+            $session->addError( 'POST back failed' );
+        } else {
+            if ( $post['p4'] === 'Duplicate' ) {
+                $session->addError( 'Duplicate transaction' );
+            }
+            $session->addError( Mage::helper( 'paysubs' )->__( $post['p3'] ) );
+            /** p2 holds order id
+             * m_3 holds orderid-quoteid
+             * p3 has response - characters 7-16 == APPROVED
+             */
+            if ( isset( $post['m_3'] ) && !empty( $post['m_3'] ) ) {
+                $rid     = explode( '-', $post['m_3'] );
+                $orderId = (int) $rid[0];
+                $quoteId = (int) $rid[1];
+            } else {
+                $orderId = $session->getLastOrderId();
+                $quoteId = $session->getPaySubsQuoteId( true );
+            }
+            $this->failed( $orderId, $post, $quoteId );
+        }
+    }
+
+    /**
+     * Success
+     * POST from PaySubs returns here
      */
     public function responseAction()
     {
+        /** Get POST content and sanitise it */
+        $post = [];
+        foreach ( $_POST as $k => $value ) {
+            $post[$k] = filter_var( $value, FILTER_SANITIZE_STRING );
+        }
+
         $session = $this->getCheckout();
-        $order   = Mage::getModel( 'sales/order' );
-        $order->loadByIncrementId( $session->getLastRealOrderId() );
+
+        /** p2 holds order id
+         * m_3 holds orderid-quoteid
+         * p3 has response - characters 7-16 == APPROVED
+         */
+        if ( isset( $post['m_3'] ) && !empty( $post['m_3'] ) ) {
+            $rid     = explode( '-', $post['m_3'] );
+            $orderId = (int) $rid[0];
+            $quoteId = (int) $rid[1];
+        } else {
+            $orderId = $session->getLastOrderId();
+            $quoteId = $session->getPaySubsQuoteId( true );
+        }
+        if ( isset( $post['p3'] ) ) {
+            if ( substr( $post['p3'], 6, 8 ) === 'APPROVED' ) {
+                $this->successful( $orderId, $post, $quoteId );
+            } else {
+                $this->failed( $orderId, $post, $quoteId );
+            }
+        } else {
+            // There is a problem - redirect to cart
+            $cartUrl = Mage::getUrl( 'checkout/cart' );
+            echo <<<HTML
+<html>
+<body>
+<script>
+window.location.href='$cartUrl';
+</script>
+</body>
+</html>
+HTML;
+        }
+    }
+
+    /**
+     * @param $orderId
+     * @param $post
+     * @param false $quoteId
+     */
+    private function successful( $orderId, $post, $quoteId = false )
+    {
+        $order = Mage::getModel( 'sales/order' )->loadByIncrementId( $orderId );
+        $order->setState( Mage_Sales_Model_Order::STATE_PROCESSING )->save();
+
+        $payment = $order->getPayment();
+        $payment->save();
+
+        $invoice = $order->prepareInvoice();
+        $invoice->register()->capture();
+        Mage::getModel( 'core/resource_transaction' )
+            ->addObject( $invoice )
+            ->addObject( $invoice->getOrder() )
+            ->save();
+        $message = Mage::helper( 'paysubs' )->__( 'Payment successful. Authorization: ' . substr( $post, 0, 6 ) );
+        if ( $this->_sendNewOrderEmail ) {
+            $message .= Mage::helper( 'paysubs' )->__( 'Nptified customer about invoice# ' . $invoice->getIncrementId() );
+            $order->sendNewOrderEmail()
+                ->addStatusHistoryComment( $message )
+                ->setIsCustomerNotified( true )
+                ->save();
+        } else {
+            $order->addStatusHistoryComment( $message )->save();
+        }
+        $this->clearCart();
+        $checkoutSession = Mage::getSingleton( 'checkout/type_onepage' )->getCheckout();
+        $checkoutSession->setLastSuccessQuoteId( $quoteId );
+        $checkoutSession->setLastQuoteId( $quoteId );
+        $checkoutSession->setLastOrderId( $orderId );
+
+        $url = Mage::getUrl( 'checkout/onepage/success' );
+
+        echo <<<HTML
+<html>
+<body>
+    <script>window.location='$url';</script>
+</body>
+</html>
+HTML;
+        die;
+    }
+
+    /**
+     * @param $orderId
+     * @param $post
+     * @param false $quoteId
+     */
+    private function failed( $orderId, $post, $quoteId = false )
+    {
+        $order = Mage::getModel( 'sales/order' )->loadByIncrementId( $orderId );
+        $order->cancel();
+        $order->setState(
+            'Mage_Sales_Model_Order::STATE_CANCELED',
+            true,
+            'Redirect Response: Payment using PaySubs VCS failed: ' . $post['p3']
+        );
+        $order->setStatus( 'canceled' );
+        $order->addStatusToHistory(
+            Mage_Sales_Model_Order::STATE_CANCELED,
+            'Redirect Response: Payment using PaySubs VCS failed: ' . $post['p3']
+        );
         $order->save();
-        $order->sendNewOrderEmail();
-        try {
 
-            $request = $this->_checkReturnedPost();
-            if ( $this->_order->canInvoice() ) {
-                $invoice = $this->_order->prepareInvoice();
-                $invoice->register()->capture();
-                Mage::getModel( 'core/resource_transaction' )
-                    ->addObject( $invoice )
-                    ->addObject( $invoice->getOrder() )
-                    ->save();
+        $session = Mage::getSingleton( 'checkout/session' );
+
+        if ( $quoteId ) {
+            /**
+             * @var $quote Mage_Sales_Model_Quote
+             */
+            $quote = Mage::getModel( 'sales/quote' )->load( $quoteId );
+            if ( $quote->getId() ) {
+                $quote->setIsActive( true )->save();
+                $session->setQuoteId( $quoteId );
             }
-
-            $this->_order->addStatusToHistory(
-                $this->_order->getStatus(),
-                Mage::helper( 'paysubs' )->__( 'Customer returned successfully.' ) . '<br/>' .
-                Mage::helper( 'paysubs' )->__( 'Authorization:' ) . substr( $_REQUEST['p3'], 0, 6 ) );
-            $this->_order->save();
-            if ( $this->_order->getId() && $this->_sendNewOrderEmail ) {
-                $this->_order->sendNewOrderEmail();
-            }
-
-            $this->loadLayout();
-            $this->renderLayout();
-
-            $this->_redirect( 'checkout/onepage/success' );
-
-        } catch ( Exception $e ) {
-            $this->loadLayout();
-            $this->_initLayoutMessages( 'checkout/session' );
-            $this->renderLayout();
-            $this->_redirect( 'checkout/onepage/success' );
         }
+
+        $url = Mage::getUrl( 'checkout/onepage/failure' );
+        echo <<<HTML
+<html>
+<body>
+    <script>window.location='$url';</script>
+</body>
+</html>
+HTML;
+        die;
     }
 
     /**
-     * PaySubs return action
+     *
      */
-    protected function successAction()
+    private function clearCart()
     {
-        $session = $this->getCheckout();
-
-        $session->unsPaySubsRealOrderId();
-        $session->setQuoteId( $session->getPaySubsQuoteId( true ) );
-        $session->getQuote()->setIsActive( false )->save();
-
-        $order = Mage::getModel( 'sales/order' );
-        $order->load( $this->getCheckout()->getLastOrderId() );
-        if ( $order->getId() && $this->_sendNewOrderEmail ) {
-            $order->sendNewOrderEmail();
+        Mage::getSingleton( 'checkout/session' )->clear();
+        foreach ( Mage::getSingleton( 'checkout/session' )->getQuote()->getItemsCollection() as $item ) {
+            Mage::getSingleton( 'checkout/cart' )->removeItem( $item->getId() )->save();
         }
-
-    }
-
-    /**
-     * PaySubs return action
-     */
-    protected function failureAction()
-    {
-
-        $session = $this->getCheckout();
-        $session->getMessages( true );
-        if ( !$this->getRequest()->isPost() ) {
-            $session->addError( 'Wrong request type.' );
-        } else {
-            $request = $this->getRequest()->getPost();
-            if ( $request['p4'] == 'Duplicate' ) {
-                $session->addError( 'Duplicate transaction' );
-            }
-            $session->addError( Mage::helper( 'paysubs' )->__( $request['p3'] ) );
-
-            $this->_order       = Mage::getModel( 'sales/order' )->loadByIncrementId( $request['p2'] );
-            $this->_paymentInst = $this->_order->getPayment()->getMethodInstance();
-            $this->_paymentInst->setTransactionId( $request['p2'] );
-        }
-
-        $messages = $session->getMessages();
-
-        $errors = false;
-        if ( $messages ) {
-            foreach ( $messages->getErrors() as $msg ) {
-                $errors[] = $msg->toString();
-            }
-        }
-
-        if ( isset( $request ) ) {
-            $this->_order->addStatusToHistory(
-                Mage_Sales_Model_Order::STATE_CANCELED,
-                "Failure from PaySubs<br/>" .
-                ( is_array( $errors ) ? implode( "<br/>", $errors ) : 'No extra information' ) );
-            $this->_order->cancel();
-            $this->_order->save();
-        } else {
-            $order = Mage::getModel( 'sales/order' );
-            $order->loadByIncrementId( $session->getLastRealOrderId() );
-            $order->addStatusToHistory( Mage_Sales_Model_Order::STATE_CANCELED,
-                Mage::helper( 'paysubs' )->__( 'Payment Canceled by Customer' ) );
-            $order->save();
-        }
-        $this->loadLayout();
-        $this->_initLayoutMessages( 'checkout/session' );
-        $this->renderLayout();
-
-    }
-
-    /**
-     * Checking POST variables.
-     * Creating invoice if payment was successfull or cancel order if payment was declined
-     */
-    protected function _checkReturnedPost()
-    {
-        // check request type
-        if ( !$this->getRequest()->isPost() ) {
-            throw new Exception( 'Wrong request type.', 10 );
-        }
-
-        // get request variables
-        $request = $this->getRequest()->getPost();
-        if ( empty( $request ) ) {
-            throw new Exception( 'Request doesn\'t contain POST elements.', 20 );
-        }
-
-        // check order id
-        if ( empty( $request['p2'] ) || strlen( $request['p2'] ) > 50 ) {
-            throw new Exception( 'Missing or invalid order ID', 40 );
-        }
-
-        // load order for further validation
-        $this->_order       = Mage::getModel( 'sales/order' )->loadByIncrementId( $request['p2'] );
-        $this->_paymentInst = $this->_order->getPayment()->getMethodInstance();
-
-        // check transaction password
-        if ( $this->_paymentInst->getConfigData( 'pam' ) ) {
-            if ( $this->_paymentInst->getConfigData( 'pam' ) != $request['pam'] ) {
-                throw new Exception( 'Transaction password wrong' );
-            }
-
-            if ( $request['m_1'] != md5( $request['pam'] . '::' . $request['p2'] ) ) {
-                throw new Exception( 'Checksum mismatch' );
-            }
-
-        }
-
-        // check transaction status
-        if ( !empty( $request['p3'] ) && substr( $request['p3'], 6, 8 ) != 'APPROVED' ) {
-            throw new Exception( 'Transaction was not successfull.' );
-        }
-
-        // check transaction amount
-        if ( number_format( $this->_order->getBaseGrandTotal(), 2, '.', '' ) != $request['p6'] ) {
-            throw new Exception( 'Transaction amount doesn\'t match.' );
-        }
-
-        return $request;
     }
 }

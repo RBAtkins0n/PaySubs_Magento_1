@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2019 PayGate (Pty) Ltd
+ * Copyright (c) 2020 PayGate (Pty) Ltd
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -20,4 +20,5 @@ class Mage_PaySubs_Model_Cc extends Mage_PaySubs_Model_Shared
     protected $_paymentMethod = 'cc';
 
     protected $_Url = 'https://www.vcs.co.za/vvonline/ccform.asp';
+    // protected $_Url = 'https://core3.directpay.online/vcs/pay';
 }
