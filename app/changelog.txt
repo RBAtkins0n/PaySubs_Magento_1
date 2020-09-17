@@ -1,0 +1,5 @@
+=====================================
+Date	  : Version: Description
+=====================================
+
+2020-09-17: v1.0.2 : Fix sessions cleared in some browsers.

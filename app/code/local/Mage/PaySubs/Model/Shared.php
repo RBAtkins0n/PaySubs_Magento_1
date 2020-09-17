@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2019 PayGate (Pty) Ltd
+ * Copyright (c) 2020 PayGate (Pty) Ltd
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -33,6 +33,8 @@ class Mage_PaySubs_Model_Shared extends Mage_Payment_Model_Method_Abstract
     protected $_Url;
 
     protected $_order;
+
+    protected $session;
 
     /**
      * Get order model
@@ -107,31 +109,36 @@ class Mage_PaySubs_Model_Shared extends Mage_Payment_Model_Method_Abstract
 
     /**
      * prepare params array to send it to gateway page via POST
+     * called from Processing.php
      *
      * @return array
      */
     public function getFormFields()
     {
-        $orderId  = $this->getOrder()->getRealOrderId();
-        $amount   = number_format( $this->getOrder()->getBaseGrandTotal(), 2, '.', '' );
-        $currency = $this->getOrder()->getBaseCurrencyCode();
-        $email    = $this->getOrder()->getCustomerEmail();
+        $this->session = $this->getCheckout();
+        $quoteId       = $this->session->getQuoteId();
+        $orderId       = $this->getOrder()->getRealOrderId();
+        $amount        = number_format( $this->getOrder()->getBaseGrandTotal(), 2, '.', '' );
+        $currency      = $this->getOrder()->getBaseCurrencyCode();
+        $email         = $this->getOrder()->getCustomerEmail();
 
         $order          = Mage::getModel( 'sales/order' )->loadByIncrementId( $orderId );
         $billingAddress = $order->getBillingAddress();
         if ( $billingAddress ) {
             $phone = $billingAddress->getData( 'telephone' );
         }
-        $terminal_id   = $this->getConfigData( 'terminal_id' );
-        $description   = $this->getConfigData( 'description' );
-        $currency      = $this->getConfigData( 'currency' );
-        $settlement    = $this->getConfigData( 'delayed_settlement' );
-        $budget        = $this->getConfigData( 'budget' );
-        $pam           = $this->getConfigData( 'pam' );
-        $send_email    = $this->getConfigData( 'holder_email' );
-        $send_msg      = $this->getConfigData( 'sms_message' );
-        $recurring     = $this->getConfigData( 'recurring' );
-        $occur_email   = $this->getConfigData( 'occurance_email' );
+        $terminal_id = $this->getConfigData( 'terminal_id' );
+        $description = $this->getConfigData( 'description' );
+        $currency    = $this->getConfigData( 'currency' );
+        $settlement  = $this->getConfigData( 'delayed_settlement' );
+        $budget      = $this->getConfigData( 'budget' );
+        $pam         = $this->getConfigData( 'pam' );
+        $send_email  = $this->getConfigData( 'holder_email' );
+        $send_msg    = $this->getConfigData( 'sms_message' );
+        $recurring   = $this->getConfigData( 'recurring' );
+        $occur_email = $this->getConfigData( 'occurance_email' );
+
+        $urlsProvided  = 'Y';
         $return_url    = $this->getConfigData( 'paysubs_return_url' );
         $cancelled_url = $this->getConfigData( 'paysubs_cancelled_url' );
 
@@ -171,34 +178,36 @@ class Mage_PaySubs_Model_Shared extends Mage_Payment_Model_Method_Abstract
             $declined_url = '';
         }
 
-        $hash   = $terminal_id . $orderId . $description . $amount . $currency . $occur_freq . $occur_count . $phone . $message . $cancelled_url . $occur_email . $settlement . $occur_amount . $occur_date . $email . md5( $this->getConfigData( 'pam' ) . '::' . $orderId ); //Hash value calculation
+        $rid  = $orderId . '-' . $quoteId;
+        $hash = $terminal_id . $orderId . $description . $amount . $currency . $occur_freq . $occur_count . $phone . $message . $cancelled_url . $occur_email . $settlement . $occur_amount . $occur_date . $email . $rid . md5(
+            $this->getConfigData( 'pam' ) . '::' . $orderId
+        ); //Hash value calculation
         $params = array(
-            'p1'                  => $terminal_id,
-            'p2'                  => $orderId,
-            'p3'                  => $description,
-            'p4'                  => $amount,
-
-            'p5'                  => $currency,
-            'p6'                  => $occur_freq,
-            'p7'                  => $occur_count,
-            'p8'                  => $phone,
-            'p9'                  => $message,
-            'p10'                 => $cancelled_url,
-            'p11'                 => $occur_email,
-            'p12'                 => $settlement,
-            'p13'                 => $occur_amount,
-            'CardholderEmail'     => $email,
-            'Next Occurance Date' => $occur_date,
-            'Budget'              => $budget,
-            'UrlsProvide'         => $return_url,
-            'ApprovedUrl'         => $approved_url,
-            'DeclinedUrl'         => $declined_url,
-            'Pam'                 => $hash,
+            'p1'              => $terminal_id,
+            'p2'              => $orderId,
+            'p3'              => $description,
+            'p4'              => $amount,
+            'p5'              => $currency,
+            'p6'              => $occur_freq,
+            'p7'              => $occur_count,
+            'p8'              => $phone,
+            'p9'              => $message,
+            'p10'             => $cancelled_url,
+            'p11'             => $occur_email,
+            'p12'             => $settlement,
+            'p13'             => $occur_amount,
+            'm_3'             => $rid,
+            'CardholderEmail' => $email,
+            'NextOccurDate'   => $occur_date,
+            'Budget'          => $budget,
+            'UrlsProvided'    => $urlsProvided,
+            'ApprovedUrl'     => $approved_url,
+            'DeclinedUrl'     => $declined_url,
+            'pam'             => $this->getConfigData( 'pam' ),
         );
         if ( $this->getConfigData( 'pam' ) != '' ) {
             $params['m_1'] = md5( $this->getConfigData( 'pam' ) . '::' . $params['p2'] );
         }
         return $params;
-
     }
 }
