@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--
 /*
- * Copyright (c) 2019 PayGate (Pty) Ltd
+ * Copyright (c) 2020 PayGate (Pty) Ltd
  *
  * Author: App Inlet (Pty) Ltd
  *
@@ -11,7 +11,7 @@
 <config>
     <modules>
         <PaySubs>
-            <version>1.0.1</version>
+            <version>1.0.2</version>
         </PaySubs>
     </modules>
     <global>
@@ -50,6 +50,7 @@
         </blocks>
         <payment>
             <url>https://www.vcs.co.za/vvonline/vcspay.aspx</url>
+            <!-- <url>https://core3.directpay.online/vcs/pay</url> -->
         </payment>
     </global>
     <frontend>
